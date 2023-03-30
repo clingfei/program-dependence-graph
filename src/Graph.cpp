@@ -1,4 +1,4 @@
-#include "PDGCallGraph.hh"
+#include "Graph.hh"
 
 using namespace llvm;
 
@@ -108,6 +108,10 @@ void pdg::ProgramGraph::build(Module &M)
 
     Node * n = new Node(global_var, node_type);
     _val_node_map.insert(std::pair<Value *, Node *>(&global_var, n));
+
+    // outs() << "inserting ";
+    // global_var.print(outs());
+    // outs() << " \n";
     addNode(*n);
   }
 
@@ -129,19 +133,7 @@ void pdg::ProgramGraph::build(Module &M)
         node_type = GraphNodeType::INST_FUNCALL;
       if (isa<BranchInst>(&*inst_iter))
         node_type = GraphNodeType::INST_BR;
-
       Node *n = new Node(*inst_iter, node_type);
-
-      // handle values used inside instructions, e.g., tmp gep inst...
-      if (isa<StoreInst>(&*inst_iter)) {
-        for (auto operand : inst_iter->operand_values()) {
-          if (!isa<Instruction>(operand)) {
-            Node *val_node = new Node(*operand, GraphNodeType::VAR_OTHER);
-            addNode(*val_node);
-          }
-        }
-      }
-
       _val_node_map.insert(std::pair<Value *, Node *>(&*inst_iter, n));
       func_w->addInst(*inst_iter);
       addNode(*n);
@@ -153,10 +145,6 @@ void pdg::ProgramGraph::build(Module &M)
     _func_wrapper_map.insert(std::make_pair(&F, func_w));
   }
 
-  // build call graph
-  auto &call_g = PDGCallGraph::getInstance();
-  if (!call_g.isBuild())
-    call_g.build(M);
   // handle call sites
   for (auto &F : M)
   {
@@ -171,12 +159,7 @@ void pdg::ProgramGraph::build(Module &M)
     {
       auto called_func = pdgutils::getCalledFunc(*ci);
       if (called_func == nullptr)
-      {
-        // handle indirect call
-        auto ind_call_candidates = call_g.getIndirectCallCandidates(*ci, M);
-        if (ind_call_candidates.size() > 0)
-          called_func = *ind_call_candidates.begin();
-      }
+        continue;
       if (!hasFuncWrapper(*called_func))
         continue;
       CallWrapper *cw = new CallWrapper(*ci);
@@ -387,16 +370,32 @@ void pdg::ProgramGraph::buildGlobalAnnotationNodes(Module &M)
   }
 }
 
-void pdg::ProgramGraph::dumpDataDepGraph(Function &F) {
-  for (auto iter1 = inst_begin(F); iter1 != inst_end(F); iter1++) {
-    for (auto iter2 = inst_begin(F); iter2 != inst_end(F); iter2++) {
-      if (&*iter1 == &*iter2)
+
+std::set<pdg::Node *> pdg::GenericGraph::findNodesReachedByEdges(pdg::Node &src, const std::set<EdgeType> &edge_types, bool is_backward)
+{
+  std::set<Node *> ret;
+  std::queue<Node *> node_queue;
+  node_queue.push(&src);
+  std::set<Node *> visited;
+  while (!node_queue.empty())
+  {
+    Node *current_node = node_queue.front();
+    node_queue.pop();
+    if (visited.find(current_node) != visited.end())
+      continue;
+    visited.insert(current_node);
+    ret.insert(current_node);
+    Node::EdgeSet edge_set;
+    if (is_backward)
+      edge_set = current_node->getInEdgeSet();
+    else 
+      edge_set = current_node->getOutEdgeSet();
+    for (auto edge : edge_set)
+    {
+      if (edge_types.find(edge->getEdgeType()) == edge_types.end())
         continue;
-      Node* n1 = getNode(*iter1);
-      Node* n2 = getNode(*iter2);
-      assert((n1 && n2) && "cannot process null node");
-      if (canReach(*n1, *n2))
-        errs() << *iter1  << " - " << *iter2 << "\n";
+      node_queue.push(edge->getDstNode());
     }
   }
+  return ret;
 }

@@ -1,0 +1,10 @@
+   %4 = alloca i8*, align 8
+  ............
+  store i8* %12, i8** %4, align 8, !dbg !36
+  %13 = load %struct.person_t*, %struct.person_t** %2, align 8, !dbg !40
+  %14 = getelementptr inbounds %struct.person_t, %struct.person_t* %13, i32 0, i32 0, !dbg !41
+  store i32 10, i32* %14, align 8, !dbg !42
+  %15 = load i8*, i8** %3, align 8, !dbg !43
+  %16 = load i8*, i8** %4, align 8, !dbg !44
+  %17 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([24 x i8], [24 x i8]* @.str, i64 0, i64 0), i8* %15, i8* %16), !dbg !45
+  ret void, !dbg !46

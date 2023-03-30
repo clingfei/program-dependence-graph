@@ -19,7 +19,7 @@ namespace pdg
       llvm::StringRef getPassName() const override { return "Program Dependency Graph"; }
       FunctionWrapper *getFuncWrapper(llvm::Function &F) { return _PDG->getFuncWrapperMap()[&F]; }
       CallWrapper *getCallWrapper(llvm::CallInst &call_inst) { return _PDG->getCallWrapperMap()[&call_inst]; }
-      void connectGlobalVarWithUses();
+      void connectGlobalWithUses();
       void connectInTrees(Tree *src_tree, Tree *dst_tree, EdgeType edge_type);
       void connectOutTrees(Tree *src_tree, Tree *dst_tree, EdgeType edge_type);
       void connectCallerAndCallee(CallWrapper &cw, FunctionWrapper &fw);
@@ -31,6 +31,7 @@ namespace pdg
       void connectActualOutTreeWithAddrVars(Tree &actual_out_tree, llvm::CallInst &ci);
       bool canReach(Node &src, Node &dst);
       bool canReach(Node &src, Node &dst, std::set<EdgeType> exclude_edge_types);
+      void dumpGlobal();
 
     private:
       llvm::Module *_module;
