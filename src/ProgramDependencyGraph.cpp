@@ -346,15 +346,24 @@ void pdg::ProgramDependencyGraph::connectFormalInTreeWithAddrVars(Tree &formal_i
   {
     TreeNode* current_node = node_queue.front();
     node_queue.pop();
+    std::queue<Node *> workqueue;
+    std::unordered_set<Node *> isVisited;
     TreeNode* parent_node = current_node->getParentNode();
     std::unordered_set<Value*> parent_node_addr_vars;
     if (parent_node != nullptr)
       parent_node_addr_vars = parent_node->getAddrVars();
-    for (auto addr_var : current_node->getAddrVars())
-    {
-      if (!_PDG->hasNode(*addr_var))
+    for (auto addr_var : current_node->getAddrVars()) {
+      if (!_PDG->hasNode(*addr_var)) 
         continue;
-      auto addr_var_node = _PDG->getNode(*addr_var);
+        auto addr_var_node = _PDG->getNode(*addr_var);
+        workqueue.push(addr_var_node);
+    }
+    while (!workqueue.empty()) {
+      auto addr_var_node = workqueue.front();
+      workqueue.pop();
+      if (isVisited.find(addr_var_node) != isVisited.end()) 
+        continue;
+      isVisited.insert(addr_var_node);
       current_node->addNeighbor(*addr_var_node, EdgeType::PARAMETER_IN);
       auto alias_nodes = addr_var_node->getOutNeighborsWithDepType(EdgeType::DATA_ALIAS);
       for (auto alias_node : alias_nodes)
@@ -365,6 +374,7 @@ void pdg::ProgramDependencyGraph::connectFormalInTreeWithAddrVars(Tree &formal_i
         if (parent_node_addr_vars.find(alias_node_val) != parent_node_addr_vars.end())
           continue;
         current_node->addNeighbor(*alias_node, EdgeType::PARAMETER_IN);
+        workqueue.push(alias_node);
       }
     }
 
